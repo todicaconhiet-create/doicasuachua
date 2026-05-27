@@ -3011,7 +3011,7 @@ async function submitTransfer() {
   showAlert('app','Đang xử lý...','ai');
   try {
     for(let name of users) {
-      await api({ action: "addTransfer", data: JSON.stringify({ name, date, newKip, newPattern, newViTriMoc }) });
+      await api({ action: "addTransfer", data: JSON.stringify({ name, date, newKip, newPattern, newViTriMoc, by: currentUser.name }) });
     }
     await loadTransfers(); 
     renderTransferLog();
