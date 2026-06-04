@@ -3487,8 +3487,9 @@ async function submitTransfer() {
 
   showLocalAlert('transfer-msg','Đang xử lý...','ai')
   try {
+    const approvedBy = CU ? CU.name : "";
     for(let name of users) {
-      await api({ action: "addTransfer", data: JSON.stringify({ name, date, newKip, newPattern, newViTriMoc }) });
+      await api({ action: "addTransfer", data: JSON.stringify({ name, date, newKip, newPattern, newViTriMoc, approvedBy }) });
     }
     await loadTransfers(); 
     renderTransferLog();
