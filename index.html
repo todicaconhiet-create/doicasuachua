@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title id="page-title">Quản lý đổi ca</title>
-<!-- VERSION: 2026-06-08.5 -->
 <link rel="preconnect" href="https://script.google.com" crossorigin>
 <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <style>
@@ -12,7 +11,7 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6fb;color:#1a1a2e;font-size:14px; -webkit-tap-highlight-color: transparent;}
 .topbar{background:#1a56a0;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
 .topbar-sub{font-size:12px;opacity:.8;margin-top:2px}
-.wrap{max-width:1100px;margin:0 auto;padding:14px 12px 40px}
+.wrap{max-width:100%;margin:0 auto;padding:14px 12px 40px}
 .card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);}
 .sec-title{font-size:16px;font-weight:600;color:#0f172a}
 .ubar{background:#ebf3ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px; flex-wrap: wrap;}
@@ -241,7 +240,7 @@ textarea{resize:none;height:80px}
           </div>
           <div><label>Kíp</label><select id="f-partner-kip" disabled style="background:#f1f5f9; color:#475569; font-weight:600; appearance:none;"><option value="">-- Kíp --</option></select></div>
         </div>
-        <div class="form-row full"><label>Chức danh người đi thay</label><select id="f-partner-role"><option value="">-- Chọn --</option></select></div>
+        <div class="form-row full"><label>Chức danh người đi thay</label><select id="f-partner-role" disabled><option value="">-- Chọn --</option></select></div>
         <div class="form-row full"><label>Lý do</label><textarea id="f-reason" placeholder="Lý do đổi ca..."></textarea></div>
         <button class="btn btn-primary" id="btn-submit" style="width:100%; padding:12px;" onclick="submitRequest()">Gửi yêu cầu</button>
         <div id="submit-msg" class="alert" style="margin-top:10px; display:none"></div>
@@ -326,12 +325,15 @@ textarea{resize:none;height:80px}
           <label>1. Lọc theo chức danh</label>
           <select id="tc-role" onchange="filterTCUsers()"><option value="">-- Tất cả --</option></select>
         </div>
-        <div>
+        <div id="tc-date-wrap">
           <label>2. Ngày bắt đầu áp dụng</label>
           <input type="date" id="tc-date" onchange="filterTCUsers()" style="border-color:#f97316;">
         </div>
       </div>
 
+      <div id="tc-no-perm-msg" style="display:none; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:12px 16px; color:#991b1b; font-weight:600; margin-bottom:12px;">
+        🚫 Bạn không có quyền ban hành lệnh điều chuyển. Liên hệ quản trị viên để được cấp quyền.
+      </div>
       <!-- TOGGLE CHẾ ĐỘ -->
       <div style="background:#fff7ed; border:1px solid #fdba74; border-radius:8px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; color:#ea580c; font-size:14px; margin:0;">
@@ -809,7 +811,7 @@ textarea{resize:none;height:80px}
 </div>
 <script>
 // =============================================
-// DÁN LINK WEB APP CỦA BẠN VÀO DÒNG BÊN DƯỚI:
+// KHAI BÁO BIẾN TOÀN CỤC
 // =============================================
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwtm-zxPFa9AWYEVspeA8siaH007g-c2FtXTuJBWvWr6GRmWWtjlRCPwe1q0n2xq5S9kg/exec";
 let APP_CONFIG = { tenPX: "Phân xưởng", lechMax: 10 };
@@ -1162,6 +1164,7 @@ function refreshPartnerList() {
   document.querySelector('#ss-partner .ss-btn').classList.add('ph');
   document.getElementById('f-partner-kip').value = '';
   document.getElementById('f-partner-role').value = '';
+  document.getElementById('f-partner-role').disabled = false;
   
   // Nạp lại danh sách mới toanh theo điều kiện mới
   buildSS('ss-partner', '');
@@ -1192,7 +1195,10 @@ document.addEventListener('click',e=>{
           if (sorted.length > 0) partnerKipThucTe = sorted[0].newKip;
         }
         if(partnerKipThucTe) document.getElementById('f-partner-kip').value = partnerKipThucTe;
-        if(pInfo.chucDanh) document.getElementById('f-partner-role').value = pInfo.chucDanh;
+        if(pInfo.chucDanh) {
+          document.getElementById('f-partner-role').value = pInfo.chucDanh;
+          document.getElementById('f-partner-role').disabled = true;
+        }
       }
     } return; 
   }
@@ -1269,12 +1275,22 @@ async function doLogin(){
     document.getElementById('tab-btn-duyet-np').style.display = CU.role==='ld'?'':'none';
     if (CU.role === 'ld') {
       document.getElementById('fcd-wrap').style.display = 'contents';
-      const cdList = [...new Set(NV_LIST.map(u => u.chucDanh).filter(Boolean))].sort();
+      // Sắp xếp theo thứ tự ưu tiên trong Settings, giống Bảng đi ca
+      const _cdAll = [...new Set(NV_LIST.map(u => u.chucDanh).filter(Boolean))];
+      const _pOrder = (APP_CONFIG.priorityOrder && APP_CONFIG.priorityOrder.length > 0) ? APP_CONFIG.priorityOrder : [];
+      const cdList = _cdAll.sort((a, b) => {
+        const iA = _pOrder.indexOf(a); const iB = _pOrder.indexOf(b);
+        const vA = iA === -1 ? 999 : iA; const vB = iB === -1 ? 999 : iB;
+        if (vA !== vB) return vA - vB;
+        return a.localeCompare(b, 'vi');
+      });
       document.getElementById('f-fcd').innerHTML = '<option value="">Tất cả chức danh</option>' + cdList.map(cd => `<option>${cd}</option>`).join('');
       document.getElementById('f-leave-hist-cd-wrap').style.display = 'contents';
       document.getElementById('f-leave-hist-cd').innerHTML = '<option value="">Tất cả chức danh</option>' + cdList.map(cd => `<option>${cd}</option>`).join('');
     }
-   document.getElementById('btn-admin').style.display = CU.admin?'':'none'; document.getElementById('tab-btn-admin-hc').style.display = (CU.admin || CU.role === 'ld')?'':'none';      document.getElementById('f-name').value = CU.name; 
+   document.getElementById('btn-admin').style.display = CU.admin?'':'none'; const myInfoDisp = NV_LIST.find(u => u.name === CU.name);
+    const hasDispatchPerm = CU.admin || (myInfoDisp && myInfoDisp.quyenDieuDong && myInfoDisp.quyenDieuDong.trim());
+    document.getElementById('tab-btn-admin-hc').style.display = hasDispatchPerm ? '' : 'none';      document.getElementById('f-name').value = CU.name; 
     if(myInfo) {
   // Lấy kíp thực tế sau điều động
   let displayKip = myInfo.kip;
@@ -1287,6 +1303,19 @@ async function doLogin(){
   }
   document.getElementById('f-kip').value = displayKip;
 }
+    // Kiểm tra quyền điều động/điều chuyển và ẩn form nếu không có
+    {
+      const myInfoPerm = NV_LIST.find(u => u.name === CU.name);
+      const qdd = myInfoPerm ? (myInfoPerm.quyenDieuDong || '').trim() : '';
+      const canDispatch = CU.admin || !!qdd;
+      // Form điều chuyển
+      const tcNoPermMsg = document.getElementById('tc-no-perm-msg');
+      const tcFormBody = document.querySelectorAll('#tab-admin-hc .card:last-of-type > *:not(#tc-no-perm-msg)');
+      if (!canDispatch) {
+        if (tcNoPermMsg) tcNoPermMsg.style.display = '';
+        tcFormBody.forEach(el => el.style.display = 'none');
+      }
+    }
     let isLd = (CU.role === 'ld' || CU.admin) ? 'inline-flex' : 'none'; 
     document.getElementById('btn-export-excel').style.display = isLd; 
     document.getElementById('btn-export-history').style.display = isLd; 
@@ -2303,6 +2332,7 @@ if (document.getElementById('f-no-return').checked) {
     await api({ action: "add", data: JSON.stringify({name, kip, caDoi, ngayDoi, caTra, ngayTra, partner, partnerKip, partnerRole, reason}) }); 
     await loadAll(); showLocalAlert('submit-msg','Đã gửi đơn thành công!','as'); 
     ['f-ca-doi','f-ca-tra','f-partner-kip','f-partner-role','f-ngay-doi','f-ngay-tra','f-reason','f-partner'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-partner-role').disabled = false;
     document.getElementById('f-no-return').checked = false; toggleNoReturn();
     document.getElementById('ss-partner-lbl').textContent='-- Chọn --'; document.querySelector('#ss-partner .ss-btn').classList.add('ph'); switchTab('lich-su'); 
   } catch(e){ showLocalAlert('submit-msg','Lỗi kết nối. Vui lòng thử lại.','ae'); } btn.disabled = false; btn.textContent = 'Gửi yêu cầu';
@@ -3049,7 +3079,8 @@ headHtml += `<th style="text-align:center; width:60px; background:#ebf3ff; color
          style = isLe ? "background:#fecaca;" : "";
       }
       
-      row += `<td style="text-align:center; ${style}">${(ca === 'OFF' || ca === 'NONE') ? '-' : ca}</td>`;
+      const caDisplay = ca === 'HC' ? 'X' : ca === 'HC/2' ? 'X/2' : ca;
+      row += `<td style="text-align:center; ${style}">${(ca === 'OFF' || ca === 'NONE') ? '-' : caDisplay}</td>`;
     }
 
     const totalCong = (totalHours / 8).toFixed(2);
@@ -3169,7 +3200,18 @@ let hcIdCounter = 0;
 function addRowHC() {
   hcIdCounter++;
   const id = hcIdCounter;
-  const roles = [...new Set(NV_LIST.map(u => u.chucDanh))].filter(Boolean);
+  const myInfoHC = NV_LIST.find(u => u.name === CU.name);
+  const qddRaw = CU.admin ? '*' : (myInfoHC && myInfoHC.quyenDieuDong ? myInfoHC.quyenDieuDong.trim() : '');
+  const allRolesHC = [...new Set(NV_LIST.map(u => u.chucDanh))].filter(Boolean);
+  const _pOrderHC = (APP_CONFIG.priorityOrder && APP_CONFIG.priorityOrder.length > 0) ? APP_CONFIG.priorityOrder : [];
+  const allRolesHCSorted = allRolesHC.sort((a, b) => {
+    const iA = _pOrderHC.indexOf(a); const iB = _pOrderHC.indexOf(b);
+    const vA = iA === -1 ? 999 : iA; const vB = iB === -1 ? 999 : iB;
+    if (vA !== vB) return vA - vB;
+    return a.localeCompare(b, 'vi');
+  });
+  const roles = (!qddRaw || qddRaw === '*') ? allRolesHCSorted
+    : allRolesHCSorted.filter(r => qddRaw.split(',').map(s => s.trim().toLowerCase()).includes(r.toLowerCase()));
   const kips = [...new Set(NV_LIST.map(u => u.kip))].filter(Boolean);
 
   const tr = document.createElement('tr');
@@ -4351,7 +4393,18 @@ async function submitBatchHC() {
 
 // Khởi tạo Form Điều chuyển
 function initTransferForm() {
-  const roles = [...new Set(NV_LIST.map(u => u.chucDanh))].filter(Boolean);
+  const myInfoTC = NV_LIST.find(u => u.name === CU.name);
+  const qddRawTC = CU.admin ? '*' : (myInfoTC && myInfoTC.quyenDieuDong ? myInfoTC.quyenDieuDong.trim() : '');
+  const allRolesTC = [...new Set(NV_LIST.map(u => u.chucDanh))].filter(Boolean);
+  const _pOrderTC = (APP_CONFIG.priorityOrder && APP_CONFIG.priorityOrder.length > 0) ? APP_CONFIG.priorityOrder : [];
+  const allRolesTCSorted = allRolesTC.sort((a, b) => {
+    const iA = _pOrderTC.indexOf(a); const iB = _pOrderTC.indexOf(b);
+    const vA = iA === -1 ? 999 : iA; const vB = iB === -1 ? 999 : iB;
+    if (vA !== vB) return vA - vB;
+    return a.localeCompare(b, 'vi');
+  });
+  const roles = (!qddRawTC || qddRawTC === '*') ? allRolesTCSorted
+    : allRolesTCSorted.filter(r => qddRawTC.split(',').map(s => s.trim().toLowerCase()).includes(r.toLowerCase()));
   const kips = APP_CONFIG.kipList?.length > 0 
   ? APP_CONFIG.kipList 
   : [...new Set(NV_LIST.map(u => u.kip))].filter(Boolean);
@@ -4373,6 +4426,7 @@ function initTransferForm() {
 function onMultiKipModeChange() {
   const isMulti = document.getElementById('tc-multi-kip-mode').checked;
   document.getElementById('tc-common-kip-wrap').style.display = isMulti ? 'none' : '';
+  document.getElementById('tc-date-wrap').style.display = isMulti ? 'none' : '';
   filterTCUsers(); // re-render danh sách để hiện/ẩn dropdown kíp riêng từng người
 }
 
@@ -4400,7 +4454,14 @@ function filterTCUsers() {
   const isMulti = document.getElementById('tc-multi-kip-mode') && document.getElementById('tc-multi-kip-mode').checked;
   const kips = _getTCKips();
 
-  let list = r ? NV_LIST.filter(u => u.chucDanh === r) : NV_LIST;
+  // Lọc danh sách theo quyenDieuDong
+  const myInfoTC2 = NV_LIST.find(u => u.name === CU.name);
+  const qddTC = CU.admin ? '*' : (myInfoTC2 && myInfoTC2.quyenDieuDong ? myInfoTC2.quyenDieuDong.trim() : '');
+  const allowedCds = (!qddTC || qddTC === '*') ? null
+    : qddTC.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
+  let baseList = allowedCds ? NV_LIST.filter(u => allowedCds.includes((u.chucDanh || '').toLowerCase())) : NV_LIST;
+
+  let list = r ? baseList.filter(u => u.chucDanh === r) : baseList;
   if (searchText) list = list.filter(u => u.name.toLowerCase().includes(searchText));
 
   // Header "Chọn tất cả" — chế độ multi không có "chọn tất cả" để tránh nhầm kíp
@@ -4489,7 +4550,8 @@ async function submitTransfer() {
   const pin = document.getElementById('tc-pin').value;
   const isMulti = document.getElementById('tc-multi-kip-mode') && document.getElementById('tc-multi-kip-mode').checked;
 
-  if (!date) { showLocalAlert('transfer-msg', 'Vui lòng chọn ngày áp dụng!', 'ae'); return; }
+  // Chế độ nhiều kíp: ngày riêng từng người → không bắt buộc ô ngày chung
+  if (!date && !isMulti) { showLocalAlert('transfer-msg', 'Vui lòng chọn ngày áp dụng!', 'ae'); return; }
   if (!pin)  { showLocalAlert('transfer-msg', 'Vui lòng nhập mã PIN xác nhận!', 'ae'); return; }
 
   const approvedBy = CU ? CU.name : "";
@@ -4567,6 +4629,7 @@ async function submitTransfer() {
       if (document.getElementById('tc-multi-kip-mode')) {
         document.getElementById('tc-multi-kip-mode').checked = false;
         document.getElementById('tc-common-kip-wrap').style.display = '';
+        document.getElementById('tc-date-wrap').style.display = '';
       }
       filterTCUsers();
     }
