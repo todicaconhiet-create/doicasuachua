@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title id="page-title">Quản lý đổi ca</title>
+<!-- VERSION: 2026-06-08.5 -->
 <link rel="preconnect" href="https://script.google.com" crossorigin>
 <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <style>
@@ -248,13 +249,14 @@ textarea{resize:none;height:80px}
     </div>
 <div id="tab-bang-di-ca" class="section">
   <div class="card">
-    <div style="display:flex;justify-content:space-between;margin-bottom:12px;align-items:center;flex-wrap:wrap;gap:8px;">
-      <div class="sec-title" style="margin:0;">Lịch trực tổng hợp</div>
-      <div class="ym-filter-wrap card-toolbar">
-        <button id="btn-export-sched" class="btn btn-success" style="display:none;" onclick="exportExcelSched()">⬇ Tải Excel</button>
-        <select id="f-sched-year" onchange="renderScheduleTable()" class="ym-sel-year"></select>
-        <select id="f-sched-month" onchange="renderScheduleTable()" class="ym-sel-month"></select>
-      </div>
+    <div class="sec-title" style="margin:0 0 10px;">Lịch trực tổng hợp</div>
+    <div class="hist-filter-bar">
+      <button id="btn-export-sched" class="btn btn-success" style="display:none;" onclick="exportExcelSched()">⬇ Tải Excel</button>
+      <select id="f-sched-year" onchange="renderScheduleTable()" class="ym-sel-year"></select>
+      <select id="f-sched-month" onchange="renderScheduleTable()" class="ym-sel-month"></select>
+      <select id="f-sched-kip" onchange="renderScheduleTable()"><option value="">Tất cả kíp</option></select>
+      <select id="f-sched-chucdanh" onchange="renderScheduleTable()"><option value="">Tất cả chức danh</option></select>
+      <input type="text" id="f-sched-name" class="hist-search-input" oninput="renderScheduleTable()" placeholder="🔍 Tìm theo tên...">
     </div>
     <div class="table-wrapper">
       <table class="dt" id="table-schedule" style="min-width: 1200px;">
@@ -2912,6 +2914,13 @@ tableHTML += `</tbody>`;
 // ===============================================================
 // HÀM VẼ BẢNG ĐI CA (ĐÃ PHÂN RÕ CẤP ĐỘ ƯU TIÊN MÀU SẮC)
 // ===============================================================
+function clearSchedFilter() {
+  const n = document.getElementById('f-sched-name'); if (n) n.value = '';
+  const k = document.getElementById('f-sched-kip');  if (k) k.value = '';
+  const c = document.getElementById('f-sched-chucdanh'); if (c) c.value = '';
+  renderScheduleTable();
+}
+
 function renderScheduleTable() {
   const { yr, mo } = getYM('f-sched-year', 'f-sched-month');
   if (!yr || !mo) {
@@ -2993,6 +3002,28 @@ headHtml += `<th style="text-align:center; width:60px; background:#ebf3ff; color
     if (kComp !== 0) return kComp;
     return a.name.localeCompare(b.name, 'vi');
   });
+
+  // 3b. POPULATE FILTER DROPDOWNS (chỉ lần đầu hoặc khi danh sách thay đổi)
+  const kipSel = document.getElementById('f-sched-kip');
+  const cdSel  = document.getElementById('f-sched-chucdanh');
+  if (kipSel && cdSel) {
+    const kipCur = kipSel.value;
+    const cdCur  = cdSel.value;
+    const kips = [...new Set(displayList.map(u => u.displayKip).filter(Boolean))].sort();
+    const cds  = [...new Set(displayList.map(u => u.chucDanh).filter(Boolean))];
+    kipSel.innerHTML = '<option value="">Tất cả kíp</option>' + kips.map(k => `<option${k===kipCur?' selected':''}>${k}</option>`).join('');
+    cdSel.innerHTML  = '<option value="">Tất cả chức danh</option>' + cds.map(c => `<option${c===cdCur?' selected':''}>${c}</option>`).join('');
+    // Ẩn filter chức danh với user thường (họ chỉ thấy cùng chức danh)
+    if (CU.role !== 'ld') { cdSel.parentElement && (cdSel.style.display = 'none'); }
+  }
+
+  // 3c. ÁP DỤNG BỘ LỌC
+  const fName = (document.getElementById('f-sched-name')?.value || '').toLowerCase().trim();
+  const fKip  = document.getElementById('f-sched-kip')?.value || '';
+  const fCd   = document.getElementById('f-sched-chucdanh')?.value || '';
+  if (fName) displayList = displayList.filter(u => u.name.toLowerCase().includes(fName));
+  if (fKip)  displayList = displayList.filter(u => (u.displayKip || '') === fKip);
+  if (fCd)   displayList = displayList.filter(u => (u.chucDanh  || '') === fCd);
 
   let grandTotalK = 0, grandTotalCong = 0;
   let grandTotalP = 0, grandTotalVR = 0, grandTotalO = 0, grandTotalTS = 0, grandTotalV = 0;
