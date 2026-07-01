@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title id="page-title">Quản lý đổi ca</title>
-<!-- VERSION: 2026-06-08.5 -->
 <link rel="preconnect" href="https://script.google.com" crossorigin>
 <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <style>
@@ -4479,6 +4478,12 @@ function _getCurrentKipOfUser(name, defaultKip, selectedDate) {
 }
 
 function filterTCUsers() {
+  // Lưu lại trạng thái đã tích trước khi render lại (tránh mất khi gõ tìm kiếm)
+  if (!window._tcCheckedState) window._tcCheckedState = {};
+  document.querySelectorAll('.tc-user-val').forEach(cb => {
+    window._tcCheckedState[cb.value] = cb.checked;
+  });
+
   const r = document.getElementById('tc-role').value;
   const searchText = document.getElementById('tc-user-search').value.trim().toLowerCase();
   const selectedDate = document.getElementById('tc-date').value || new Date().toISOString().substring(0, 10);
@@ -4569,6 +4574,18 @@ function filterTCUsers() {
   }).join('');
 
   document.getElementById('tc-user-list').innerHTML = html;
+
+  // Khôi phục trạng thái tích đã lưu
+  document.querySelectorAll('.tc-user-val').forEach(cb => {
+    if (window._tcCheckedState[cb.value]) {
+      cb.checked = true;
+      // Nếu đang ở chế độ nhiều kíp, mở luôn khung kíp/ngày tương ứng
+      if (cb.dataset.safeId) {
+        const w = document.getElementById(`tc-kip-wrap-${cb.dataset.safeId}`);
+        if (w) { w.style.opacity = '1'; w.style.pointerEvents = ''; }
+      }
+    }
+  });
 }
 
 // Hàm bổ trợ: Bấm 1 phát chọn hết toàn bộ danh sách (chế độ thường)
@@ -4662,6 +4679,7 @@ async function submitTransfer() {
         document.getElementById('tc-common-kip-wrap').style.display = '';
         document.getElementById('tc-date-wrap').style.display = '';
       }
+      window._tcCheckedState = {}; // reset trạng thái tích sau khi gửi xong
       filterTCUsers();
     }
   } catch(e) { showLocalAlert('transfer-msg', 'Lỗi kết nối!', 'ae'); }
